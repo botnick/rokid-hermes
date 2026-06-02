@@ -12,8 +12,13 @@ android {
         applicationId = "com.botnick.rokidhermes"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "0.1.0"
+        // The system installer compares versionCode (NOT versionName), so every
+        // published release must carry a strictly higher versionCode or the
+        // self-update install is rejected as a downgrade. Bump here, or override
+        // per release without editing source:
+        //   ./gradlew assembleRelease -PappVersionCode=2 -PappVersionName=0.2.0
+        versionCode = (project.findProperty("appVersionCode") as String?)?.toIntOrNull() ?: 1
+        versionName = (project.findProperty("appVersionName") as String?) ?: "0.1.0"
     }
 
     buildTypes {

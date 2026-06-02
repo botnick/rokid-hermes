@@ -72,6 +72,7 @@ private fun HermesApp() {
     fun speak(reply: String) = tts.speak(reply)
 
     fun startListening() {
+        tts.stop() // don't let a playing reply bleed into the live mic
         controller.setListening()
         voice.start(
             onPartial = { controller.updatePartial(it) },
@@ -109,10 +110,10 @@ private fun HermesApp() {
             controller = controller,
             onMic = { onMic() },
             onStopListening = { voice.stop() },          // stop listening = submit the utterance
-            onStop = { voice.stop(); controller.cancel() },
+            onStop = { tts.stop(); voice.stop(); controller.cancel() },
             onRetry = { controller.retry { reply -> speak(reply) } },
             onOpenSettings = { screen = SCREEN_SETTINGS },
-            onNewChat = { controller.newConversation() }
+            onNewChat = { tts.stop(); controller.newConversation() }
         )
     }
 }

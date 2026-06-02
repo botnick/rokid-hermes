@@ -74,10 +74,17 @@ They talk to Hermes' OpenAI-compatible `api_server` platform over plain HTTP.
 
 ## 🔄 Self-update
 
-On launch, `LoaderActivity` checks this repo's GitHub releases for a newer code
-bundle. If one exists it can download a `.dex`/`.jar` and load it via `DexClassLoader`
-without a reinstall; otherwise it falls back to the built-in code. Publish a release
-with a `.dex`/`.jar` asset to ship an update.
+On launch, `LoaderActivity` checks this repo's GitHub releases for a newer
+version. If a release with a higher version and an attached `.apk` asset exists,
+it downloads the APK and hands it to the system package installer (this needs the
+"install unknown apps" permission, `REQUEST_INSTALL_PACKAGES`); otherwise it
+launches the installed app.
+
+To ship an update: publish a GitHub release tagged with a higher semver
+(e.g. `v0.2.0`) and attach the built `.apk`. The APK's **`versionCode` must be
+strictly higher** than the installed one — the installer compares `versionCode`,
+not the version name — so build it with a bumped code, e.g.
+`./gradlew assembleRelease -PappVersionCode=2 -PappVersionName=0.2.0`.
 
 ---
 

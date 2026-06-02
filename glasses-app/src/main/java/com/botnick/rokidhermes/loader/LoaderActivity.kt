@@ -19,6 +19,9 @@ import kotlinx.coroutines.launch
  */
 class LoaderActivity : ComponentActivity() {
 
+    private var installerFired = false
+    private var launched = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -50,6 +53,16 @@ class LoaderActivity : ComponentActivity() {
         }
     }
 
+    /**
+     * If we fired the installer and the user came back to us (cancelled or
+     * finished installing), drop into the current app — done here, not inline
+     * after startActivity(installer), so we never race the installer dialog.
+     */
+    override fun onResume() {
+        super.onResume()
+        if (installerFired && !launched) launchApp()
+    }
+
     private suspend fun downloadAndInstall(
         release: ReleaseInfo,
         onState: (LoaderUiState) -> Unit
@@ -63,8 +76,13 @@ class LoaderActivity : ComponentActivity() {
         }
 
         onState(LoaderUiState.Downloading(0f))
+        var lastPct = -1
         val apk = CodeDownloader.download(this, url) { progress ->
-            lifecycleScope.launch { onState(LoaderUiState.Downloading(progress)) }
+            val pct = (progress * 100).toInt()
+            if (pct != lastPct) { // throttle: one UI update per integer percent
+                lastPct = pct
+                lifecycleScope.launch { onState(LoaderUiState.Downloading(progress)) }
+            }
         }
 
         if (apk == null) {
@@ -73,17 +91,18 @@ class LoaderActivity : ComponentActivity() {
         }
 
         onState(LoaderUiState.Loading)
-        val launched = AppLauncher.installApk(this, apk)
-        if (!launched) {
+        if (AppLauncher.installApk(this, apk)) {
+            // Let the installer own the foreground; we launch the app from
+            // onResume() only if the user returns here (i.e. cancels the install).
+            installerFired = true
+        } else {
             onState(LoaderUiState.Error("Couldn't open installer"))
-            return
         }
-        // Installer prompt is now on top; drop into the current app behind it so
-        // the user isn't stranded if they cancel the install.
-        launchApp()
     }
 
     private fun launchApp() {
+        if (launched) return
+        launched = true
         AppLauncher.launchApp(this)
         finish()
     }

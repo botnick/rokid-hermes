@@ -2,7 +2,7 @@
 # Release minification is currently disabled (see build.gradle.kts); rules kept
 # here so enabling it later is a one-line change.
 
-# OkHttp / Okio (used by the loader's downloader and the gateway client)
+# OkHttp / Okio (the Hermes HTTP/SSE client and the update downloader)
 -dontwarn okhttp3.**
 -dontwarn okio.**
 -dontwarn org.conscrypt.**
@@ -11,5 +11,6 @@
 -keepattributes *Annotation*, InnerClasses
 -keep,includedescriptorclasses class com.botnick.rokidhermes.**$$serializer { *; }
 
-# DynamicLoader loads MainActivity reflectively from a DEX bundle — keep it.
+# AppLauncher starts MainActivity by class name via Intent.setClassName, so keep
+# it from being renamed/removed when minification is enabled.
 -keep class com.botnick.rokidhermes.MainActivity { *; }

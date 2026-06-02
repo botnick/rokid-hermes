@@ -2,6 +2,7 @@ package com.botnick.rokidhermes.network
 
 import com.botnick.rokidhermes.data.HermesSettings
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.coroutineContext
@@ -80,7 +81,14 @@ class HermesClient(private val settings: HermesSettings) {
                 .post(body)
                 .build()
 
-            streamClient.newCall(request).execute().use { response ->
+            val call = streamClient.newCall(request)
+            // STOP must interrupt the blocking socket read immediately: coroutine
+            // cancellation alone can't unblock okio, so cancel the HTTP call when
+            // the caller's job completes/cancels (readUtf8Line then throws and the
+            // loop unwinds, closing the response via use{}).
+            coroutineContext[Job]?.invokeOnCompletion { call.cancel() }
+
+            call.execute().use { response ->
                 if (!response.isSuccessful) {
                     val raw = response.body?.string().orEmpty()
                     return@withContext Result.failure(httpError(response.code, raw))
@@ -103,7 +111,8 @@ class HermesClient(private val settings: HermesSettings) {
                         continue // skip keep-alives / non-JSON frames
                     }
                     val piece = chunk.choices.firstOrNull()?.delta?.content
-                    if (!piece.isNullOrEmpty()) {
+                    // Guard against a late chunk resurrecting UI state after STOP.
+                    if (!piece.isNullOrEmpty() && coroutineContext.isActive) {
                         full.append(piece)
                         onDelta(piece)
                     }
