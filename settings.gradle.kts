@@ -20,5 +20,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "rokid-openclaw"
+rootProject.name = "rokid-hermes"
 include(":glasses-app")

@@ -1,4 +1,4 @@
-package com.etdofresh.rokidopenclaw.loader
+package com.botnick.rokidhermes.loader
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -53,7 +53,7 @@ fun LoaderHudScreen(
         ) {
             // App title
             Text(
-                text = "◉ OPENCLAW",
+                text = "◉ HERMES",
                 color = HudGreen,
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Bold,

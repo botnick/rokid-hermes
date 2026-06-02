@@ -4,7 +4,7 @@ This directory is reserved for a **future phone companion app** for the Rokid Ma
 
 ## Why not needed now?
 
-The **Rokid AI Glasses** connect directly to OpenClaw Gateway over WiFi — no phone bridge required. The glasses run Android internally and can run standalone Jetpack Compose apps.
+The **Rokid AI Glasses** connect directly to a Hermes Agent gateway over WiFi — no phone bridge required. The glasses run Android internally and can run standalone Jetpack Compose apps.
 
 ## When would this be needed?
 
@@ -12,7 +12,7 @@ The **Rokid Max / AR line** requires the [CXR SDK](https://developer.rokid.com/)
 
 - An Android phone running this companion app
 - CXR SDK integration for glasses display/camera relay
-- The phone app would handle WiFi/WebSocket communication to OpenClaw Gateway
+- The phone app would relay requests to the Hermes Agent gateway
 
 ## Reference
 

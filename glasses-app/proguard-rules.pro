@@ -9,7 +9,7 @@
 
 # Kotlinx serialization
 -keepattributes *Annotation*, InnerClasses
--keep,includedescriptorclasses class com.etdofresh.rokidopenclaw.**$$serializer { *; }
+-keep,includedescriptorclasses class com.botnick.rokidhermes.**$$serializer { *; }
 
 # DynamicLoader loads MainActivity reflectively from a DEX bundle — keep it.
--keep class com.etdofresh.rokidopenclaw.MainActivity { *; }
+-keep class com.botnick.rokidhermes.MainActivity { *; }

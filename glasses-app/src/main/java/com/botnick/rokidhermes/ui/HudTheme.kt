@@ -1,4 +1,4 @@
-package com.etdofresh.rokidopenclaw.ui
+package com.botnick.rokidhermes.ui
 
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily

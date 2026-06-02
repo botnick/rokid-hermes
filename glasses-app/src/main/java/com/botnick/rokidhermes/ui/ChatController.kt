@@ -1,0 +1,179 @@
+package com.botnick.rokidhermes.ui
+
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import com.botnick.rokidhermes.data.HermesSettings
+import com.botnick.rokidhermes.network.ChatMessage
+import com.botnick.rokidhermes.network.HermesClient
+import com.botnick.rokidhermes.network.Roles
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
+import java.util.UUID
+
+enum class ChatStatus { IDLE, LISTENING, THINKING, STREAMING, ERROR }
+
+/** Real connectivity state of the configured gateway (not just "fields filled in"). */
+enum class Reachability { NOT_SET, UNKNOWN, OK, FAILED }
+
+/**
+ * Holds the conversation state and bridges the UI to [HermesClient]. Compose-
+ * snapshot-backed; created once via remember in MainActivity. Requests run on the
+ * supplied [scope] so they can be cancelled (the STOP button) and retried.
+ */
+class ChatController(initial: HermesSettings, private val scope: CoroutineScope) {
+
+    val messages = mutableStateListOf<ChatMessage>()
+
+    var status by mutableStateOf(ChatStatus.IDLE)
+        private set
+
+    /** Short state word shown under the transcript (Listening… / Thinking… / error). */
+    var statusText by mutableStateOf("")
+        private set
+
+    /** The assistant reply as it streams in (shown live before it's committed). */
+    var streamingReply by mutableStateOf("")
+        private set
+
+    /** Live partial speech transcript while listening (shown as a forming user bubble). */
+    var partial by mutableStateOf("")
+        private set
+
+    var configured by mutableStateOf(initial.isConfigured)
+        private set
+
+    var reachability by mutableStateOf(
+        if (initial.isConfigured) Reachability.UNKNOWN else Reachability.NOT_SET
+    )
+        private set
+
+    private var client = HermesClient(initial)
+    private var sessionId = UUID.randomUUID().toString()
+    private var job: Job? = null
+    private var onReplyCb: ((String) -> Unit)? = null
+
+    fun updateSettings(settings: HermesSettings) {
+        client = HermesClient(settings)
+        configured = settings.isConfigured
+        reachability = if (settings.isConfigured) Reachability.UNKNOWN else Reachability.NOT_SET
+    }
+
+    /** Seeds/refreshes the connection dot from a real probe result. */
+    fun markReachability(ok: Boolean) {
+        reachability = if (ok) Reachability.OK else Reachability.FAILED
+    }
+
+    fun newConversation() {
+        job?.cancel()
+        messages.clear()
+        streamingReply = ""
+        partial = ""
+        sessionId = UUID.randomUUID().toString()
+        reset()
+    }
+
+    fun setListening() {
+        status = ChatStatus.LISTENING
+        statusText = "Listening…"
+        partial = ""
+    }
+
+    fun updatePartial(text: String) {
+        if (status == ChatStatus.LISTENING && text.isNotBlank()) partial = text
+    }
+
+    fun onError(message: String) {
+        status = ChatStatus.ERROR
+        statusText = message
+        streamingReply = ""
+        partial = ""
+    }
+
+    fun reset() {
+        status = ChatStatus.IDLE
+        statusText = ""
+        partial = ""
+    }
+
+    /** Cancels the in-flight request (STOP) and returns to idle. */
+    fun cancel() {
+        job?.cancel()
+        job = null
+        streamingReply = ""
+        status = ChatStatus.IDLE
+        statusText = "Stopped"
+    }
+
+    /** Whether there's a last user turn awaiting a reply that we can retry. */
+    val canRetry: Boolean
+        get() = messages.lastOrNull()?.role == Roles.USER
+
+    fun send(userText: String, onReply: (String) -> Unit) {
+        onReplyCb = onReply
+        partial = ""
+        messages.add(ChatMessage(Roles.USER, userText))
+        runRequest()
+    }
+
+    /** Re-runs the request for the last user turn (after an error). */
+    fun retry(onReply: (String) -> Unit) {
+        onReplyCb = onReply
+        if (canRetry) runRequest()
+    }
+
+    private fun runRequest() {
+        status = ChatStatus.THINKING
+        statusText = "Hermes is thinking…"
+        streamingReply = ""
+        job = scope.launch {
+            client.streamChat(messages.toList(), sessionId) { piece ->
+                status = ChatStatus.STREAMING
+                streamingReply += piece
+            }.onSuccess { full ->
+                reachability = Reachability.OK
+                messages.add(ChatMessage(Roles.ASSISTANT, full))
+                streamingReply = ""
+                reset()
+                onReplyCb?.invoke(full)
+            }.onFailure { e ->
+                val msg = e.message ?: ""
+                when {
+                    // The agent had nothing to say — show a calm assistant turn, not a ⚠ error.
+                    msg.contains("Empty reply", true) || msg.contains("Empty response", true) -> {
+                        messages.add(ChatMessage(Roles.ASSISTANT, "(no response — try rephrasing)"))
+                        streamingReply = ""
+                        reset()
+                    }
+                    else -> {
+                        if (isConnectionError(msg)) reachability = Reachability.FAILED
+                        streamingReply = ""
+                        onError(friendlyError(msg))
+                    }
+                }
+            }
+        }
+    }
+
+    private fun isConnectionError(msg: String): Boolean =
+        msg.contains("ConnectException", true) || msg.contains("Failed to connect", true) ||
+            msg.contains("UnknownHost", true) || msg.contains("Unable to resolve host", true) ||
+            msg.contains("timeout", true) || msg.contains("401") || msg.contains("403") ||
+            msg.contains("key rejected", true)
+
+    /** Turns raw network/HTTP errors into a short, actionable HUD message. */
+    private fun friendlyError(msg: String): String = when {
+        msg.contains("401") || msg.contains("403") || msg.contains("key rejected", true) ->
+            "API key rejected — check it in Settings"
+        msg.contains("ConnectException", true) || msg.contains("Failed to connect", true) ||
+            msg.contains("UnknownHost", true) || msg.contains("Unable to resolve host", true) ->
+            "Can't reach Hermes — check the URL & WiFi"
+        msg.contains("timeout", true) ->
+            "Hermes timed out — is the gateway running?"
+        msg.contains("404") ->
+            "Not found — make sure the URL ends with /v1"
+        else -> msg.take(80)
+    }
+}

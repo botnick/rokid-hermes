@@ -4,7 +4,7 @@ Protocol definitions and data models shared between `glasses-app/` and `phone-ap
 
 ## Planned Contents
 
-- WebSocket message types and serialization
-- OpenClaw Gateway protocol definitions
-- Common data models (session, message, media)
+- OpenAI-compatible Chat Completions message types
+- Hermes Agent gateway request/response models (and SSE stream chunks)
+- Common data models (session, memory key, message, media)
 - Shared constants and configuration

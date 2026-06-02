@@ -1,132 +1,90 @@
-# 🥽 Rokid OpenClaw
+# 🥽 Rokid Hermes
 
-**Rokid AI Glasses + OpenClaw — glasses-direct, voice-first wearable AI**
+**Rokid AI Glasses + [Hermes Agent](https://github.com/NousResearch/hermes-agent) — glasses-direct, voice-first wearable AI**
 
-The Rokid AI Glasses connect **directly** to [OpenClaw Gateway](https://openclaw.ai) over WiFi — no phone needed. Talk to Claude, capture your world through the 12MP camera, and get AI responses on your monochrome green HUD.
+The Rokid AI Glasses connect **directly** to a Hermes Agent gateway over WiFi — no phone bridge needed. Tap to talk, your speech is streamed to Hermes, and the reply appears on the monochrome green HUD and is spoken back. Because Hermes is model-agnostic and self-hosted, you choose the model and keep the data.
 
 ---
 
-## ✨ Planned Features
+## ✨ Features
 
 | Feature | Description |
 |---------|-------------|
-| 🎤 **Voice Input** | 4-mic array captures speech, transcribed and sent to OpenClaw |
-| 📸 **Camera Capture** | 12MP camera frames sent to Claude's vision API |
-| 🖥️ **HUD Display** | AI responses on 480×640 monochrome green micro-LED |
-| 🔊 **TTS Responses** | Claude speaks back via built-in speakers |
-| 🔗 **Session Management** | Persistent conversation sessions via OpenClaw Gateway |
-| 📡 **Wake Word** | Always-on listening with configurable wake word |
-| 🗺️ **Context Awareness** | Location, time, and sensor data piped into prompts |
+| 🎤 **Voice input** | On-device speech recognition (glasses mic array) turns speech into text |
+| 🖥️ **HUD display** | Streaming reply, token-by-token, on the 480×640 monochrome green micro-LED |
+| 🔊 **TTS replies** | Hermes' answer is spoken aloud through the built-in speakers |
+| 🧠 **Memory that grows** | A stable per-install memory key (`X-Hermes-Session-Key`) lets Hermes remember you across conversations |
+| 🔗 **Session continuity** | Each conversation carries an `X-Hermes-Session-Id`; "New chat" starts fresh |
+| 🧪 **Connection test** | One tap verifies the gateway URL + API key before you rely on it |
 
 ---
 
 ## 🏗️ Architecture
 
-The Rokid AI Glasses run Android internally and can run sideloaded Jetpack Compose APKs. They connect directly to OpenClaw Gateway over WiFi — no phone middleman required.
+The glasses run Android internally and can run sideloaded Jetpack Compose APKs.
+They talk to Hermes' OpenAI-compatible `api_server` platform over plain HTTP.
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                      Rokid AI Glasses                           │
-│                                                                 │
-│  🎤 4-mic array ──► Voice capture & transcription               │
-│  📸 12MP camera ──► Frame capture for Claude vision             │
-│  🖥️ 480×640 green micro-LED ◄── HUD chat display              │
-│  🔊 Built-in speakers ◄── TTS playback                         │
-│  📡 WiFi ──► WebSocket client                                   │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              │  WiFi / WebSocket
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                     OpenClaw Gateway                            │
-│  • Claude API (Anthropic)                                       │
-│  • Tool execution (web search, memory, etc.)                    │
-│  • Session persistence                                          │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                         Claude                                  │
-│  • Vision (camera frames)                                       │
-│  • Conversation                                                 │
-│  • Tool use                                                     │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────┐
+│              Rokid AI Glasses                │
+│  🎤 mic ─► on-device speech-to-text          │
+│  🖥️ micro-LED ◄─ streaming HUD chat          │
+│  🔊 speakers ◄─ text-to-speech               │
+│  📡 WiFi ─► HTTPS/HTTP client                │
+└─────────────────────────────────────────────┘
+                     │  POST /v1/chat/completions (stream)
+                     ▼
+┌─────────────────────────────────────────────┐
+│        Hermes Agent — api_server (:8642)     │
+│  • OpenAI-compatible Chat Completions         │
+│  • Auth: Authorization: Bearer <API_SERVER_KEY>│
+│  • Memory + skills + tools + sessions          │
+│  • Any model (Nous Portal / OpenRouter / …)    │
+└─────────────────────────────────────────────┘
 ```
 
-**No phone bridge needed** — the glasses app handles everything:
-- **`glasses-app/`** — Standalone Android app (Kotlin/Jetpack Compose) running on the glasses
-- **`phone-app/`** — Reserved for future Rokid Max/AR line (requires phone bridge)
-- **`shared/`** — Protocol definitions shared between components
-
----
-
-## 🙏 Inspiration
-
-This project is directly inspired by **[Clawsses](https://github.com/dweddepohl/clawsses)** by [@dweddepohl](https://github.com/dweddepohl) — a Claude-powered smart glasses app. Clawsses proved the concept beautifully; Rokid OpenClaw adapts it for the Rokid AI Glasses with a direct WiFi connection to OpenClaw's persistent session architecture.
-
-Go give Clawsses a ⭐!
+- **`glasses-app/`** — the standalone glasses app (Kotlin / Jetpack Compose)
+- **`phone-app/`** — reserved for a future companion (not used; glasses are direct)
+- **`shared/`** — reserved for shared protocol/data models
 
 ---
 
 ## 📋 Requirements
 
-- [Android Studio](https://developer.android.com/studio) (latest stable)
-- [OpenClaw Gateway](https://openclaw.ai) — running locally or remote
-- Rokid AI Glasses (with WiFi connectivity)
-- WiFi network accessible to both glasses and Gateway
+- A running **Hermes Agent** with the `api_server` platform enabled and an `API_SERVER_KEY` set
+  (any OpenAI-compatible client can reach it at `http://<host>:8642/v1`)
+- The glasses and the Hermes host on the **same reachable WiFi network**
+- To build: [Android Studio](https://developer.android.com/studio) (open `glasses-app/`),
+  **or** the CLI with a JDK 17 + Android SDK on `ANDROID_HOME`: `./gradlew assembleDebug`
+
+> WiFi note: the app does not join WiFi itself (Android restricts that). Connect the
+> glasses to WiFi from the system settings, then point the app at your Hermes URL.
 
 ---
 
-## 📚 Resources
-
-- **Rokid Developer Docs:** https://developer.rokid.com/
-- **OpenClaw:** https://openclaw.ai
-- **Clawsses (inspiration):** https://github.com/dweddepohl/clawsses
-- **Anthropic Claude API:** https://docs.anthropic.com
-
----
-
-## 🚀 Getting Started
-
-> 🚧 This project is in early scaffolding phase. Check back soon!
+## 🚀 Getting started
 
 1. Clone this repo
-2. Open `glasses-app/` in Android Studio
-3. Build and sideload the APK to your Rokid AI Glasses
-4. Connect the glasses to your WiFi network
-5. Configure your OpenClaw Gateway URL in the app settings
-6. Say the wake word and start chatting!
+2. Build the APK — Android Studio (open `glasses-app/`) **or** `./gradlew assembleDebug`
+3. Sideload onto the glasses (`adb install -r glasses-app/build/outputs/apk/debug/glasses-app-debug.apk`)
+4. Open the app → **⚙ Settings** → enter your **Gateway URL** (include `/v1`) and **API key** → **Test connection**
+5. Tap **🎤 Talk** and start a conversation
 
 ---
 
-## 🔄 Self-Update System
+## 🔄 Self-update
 
-The glasses app includes a built-in dynamic code loader that checks for updates on every launch:
-
-1. **On launch**, the `LoaderActivity` checks the GitHub releases API for the latest version
-2. **If an update is available**, the HUD prompts: "Update available v1.2 — Tap to update / Skip"
-3. **On update**, it downloads the new code bundle (DEX) from the release assets
-4. **Loads dynamically** via `DexClassLoader` — no reinstall needed
-5. **Fallback**: if offline or check fails, launches the last downloaded (or built-in) version
-
-This means the app can self-update without needing to sideload a new APK. Just publish a new GitHub release with a `.dex` or `.jar` asset.
-
-The loader UI matches the green-on-black monochrome aesthetic of the 480×640 micro-LED display.
+On launch, `LoaderActivity` checks this repo's GitHub releases for a newer code
+bundle. If one exists it can download a `.dex`/`.jar` and load it via `DexClassLoader`
+without a reinstall; otherwise it falls back to the built-in code. Publish a release
+with a `.dex`/`.jar` asset to ship an update.
 
 ---
 
-## 📁 Project Structure
+## 🙏 Credits
 
-```
-rokid-openclaw/
-├── glasses-app/        # Standalone glasses app (Kotlin/Jetpack Compose)
-│   └── src/main/java/.../loader/  # Self-update loader (static entry point)
-├── phone-app/          # Future: phone companion for Rokid Max/AR line
-├── shared/             # Protocol definitions & data models
-└── README.md
-```
-
----
+- **[Hermes Agent](https://github.com/NousResearch/hermes-agent)** by Nous Research — the brain
+- **[Clawsses](https://github.com/dweddepohl/clawsses)** by [@dweddepohl](https://github.com/dweddepohl) — proved the glasses-AI concept
 
 ## 📄 License
 

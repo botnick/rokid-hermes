@@ -5,7 +5,7 @@
         so this only needs to provide a no-action-bar, full-screen black surface
         that matches the 480x640 monochrome green micro-LED HUD.
     -->
-    <style name="Theme.RokidOpenClaw" parent="android:Theme.Material.NoActionBar">
+    <style name="Theme.RokidHermes" parent="android:Theme.Material.NoActionBar">
         <item name="android:windowBackground">@android:color/black</item>
         <item name="android:statusBarColor">@android:color/black</item>
         <item name="android:navigationBarColor">@android:color/black</item>
