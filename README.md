@@ -99,9 +99,22 @@ not the version name — so build it with a bumped code, e.g.
 
 ## 🙏 Credits
 
-- **[Hermes Agent](https://github.com/NousResearch/hermes-agent)** by Nous Research — the brain
-- **[Clawsses](https://github.com/dweddepohl/clawsses)** by [@dweddepohl](https://github.com/dweddepohl) — proved the glasses-AI concept
+Standing on the shoulders of:
+
+- **[Hermes Agent](https://github.com/NousResearch/hermes-agent)** by **Nous Research** — the self-hosted, model-agnostic agent that powers every reply (the brain).
+- **[openclaw-rokid](https://github.com/etdofreshai/openclaw-rokid)** by **[@etdofreshai](https://github.com/etdofreshai)** — the original glasses-direct scaffolding and self-update loader this project was forked from.
+- **[Clawsses](https://github.com/dweddepohl/clawsses)** by **[@dweddepohl](https://github.com/dweddepohl)** — proved the Claude-powered smart-glasses concept that inspired the original.
+- **[Rokid](https://developer.rokid.com/)** — the AI Glasses hardware, CXR SDK, and developer platform.
+- **[awesome-rokid](https://github.com/Anezium/awesome-rokid)** by **[@Anezium](https://github.com/Anezium)** — the curated map of the Rokid ecosystem that pointed the way.
+
+Built with [Jetpack Compose](https://developer.android.com/jetpack/compose),
+[OkHttp](https://square.github.io/okhttp/),
+[kotlinx.serialization](https://github.com/Kotlin/kotlinx.serialization), and
+[CameraX](https://developer.android.com/training/camerax). Speech in/out uses
+Android's on-device `SpeechRecognizer` and `TextToSpeech`.
 
 ## 📄 License
 
 MIT — build on it, hack it, make it yours.
+
+This is a fork of [etdofreshai/openclaw-rokid](https://github.com/etdofreshai/openclaw-rokid) (MIT); original attribution retained above.
