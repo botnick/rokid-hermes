@@ -14,8 +14,10 @@ The Rokid AI Glasses connect **directly** to a Hermes Agent gateway over WiFi �
 | 🖥️ **HUD display** | Streaming reply, token-by-token, on the 480×640 monochrome green micro-LED |
 | 🔊 **TTS replies** | Hermes' answer is spoken aloud through the built-in speakers |
 | 🧠 **Memory that grows** | A stable per-install memory key (`X-Hermes-Session-Key`) lets Hermes remember you across conversations |
-| 🔗 **Session continuity** | Each conversation carries an `X-Hermes-Session-Id`; "New chat" starts fresh |
-| 🧪 **Connection test** | One tap verifies the gateway URL + API key before you rely on it |
+| 🔗 **Session continuity** | Each conversation carries an `X-Hermes-Session-Id`; **New** starts fresh |
+| ⏹ **Stop & retry** | Cancel a long reply mid-stream; one tap to retry after an error |
+| 📡 **Honest status** | The header dot reflects a real reachability probe, not just "fields filled in" |
+| 🧪 **Test & save** | Setup verifies the URL + API key against the gateway before it lets you in |
 
 ---
 
@@ -67,8 +69,15 @@ They talk to Hermes' OpenAI-compatible `api_server` platform over plain HTTP.
 1. Clone this repo
 2. Build the APK — Android Studio (open `glasses-app/`) **or** `./gradlew assembleDebug`
 3. Sideload onto the glasses (`adb install -r glasses-app/build/outputs/apk/debug/glasses-app-debug.apk`)
-4. Open the app → **⚙ Settings** → enter your **Gateway URL** (include `/v1`) and **API key** → **Test connection**
-5. Tap **🎤 Talk** and start a conversation
+4. Open the app → **⚙ SET UP** → enter your **Hermes URL** (include `/v1`) and **API key** → **TEST & SAVE** (it only drops you into chat once the gateway answers)
+5. Tap **🎤 TAP TO TALK**, speak, then tap **SEND**
+
+### Using it
+
+- **🎤 TAP TO TALK** → **● LISTENING — TAP TO SEND**: tap once to start, tap again to send your utterance.
+- The reply streams onto the HUD token-by-token and is read aloud; tap **✕ STOP** to cancel a long answer.
+- **NEW** clears the conversation (and rotates the session id); the header dot shows connection status: `○` not set up · `◌` checking · `●` connected · `⚠` last attempt failed.
+- On an error you get an inline card with **RETRY** and **SET UP** — no dead-ends.
 
 ---
 
