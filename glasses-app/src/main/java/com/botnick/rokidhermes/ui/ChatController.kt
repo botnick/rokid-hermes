@@ -115,6 +115,7 @@ class ChatController(initial: HermesSettings, private val scope: CoroutineScope)
         onReplyCb = onReply
         partial = ""
         messages.add(ChatMessage(Roles.USER, userText))
+        trimHistory()
         runRequest()
     }
 
@@ -129,12 +130,15 @@ class ChatController(initial: HermesSettings, private val scope: CoroutineScope)
         statusText = "Hermes is thinking…"
         streamingReply = ""
         job = scope.launch {
-            client.streamChat(messages.toList(), sessionId) { piece ->
+            // Send only the most recent window — bounds request size / tokens for a
+            // long chat. Hermes' own session id + memory key carry longer continuity.
+            client.streamChat(messages.toList().takeLast(MAX_CONTEXT), sessionId) { piece ->
                 status = ChatStatus.STREAMING
                 streamingReply += piece
             }.onSuccess { full ->
                 reachability = Reachability.OK
                 messages.add(ChatMessage(Roles.ASSISTANT, full))
+                trimHistory()
                 streamingReply = ""
                 reset()
                 onReplyCb?.invoke(full)
@@ -144,6 +148,7 @@ class ChatController(initial: HermesSettings, private val scope: CoroutineScope)
                     // The agent had nothing to say — show a calm assistant turn, not a ⚠ error.
                     msg.contains("Empty reply", true) || msg.contains("Empty response", true) -> {
                         messages.add(ChatMessage(Roles.ASSISTANT, "(no response — try rephrasing)"))
+                        trimHistory()
                         streamingReply = ""
                         reset()
                     }
@@ -175,5 +180,15 @@ class ChatController(initial: HermesSettings, private val scope: CoroutineScope)
         msg.contains("404") ->
             "Not found — make sure the URL ends with /v1"
         else -> msg.take(80)
+    }
+
+    /** Bounds in-memory transcript so a very long session can't grow the heap forever. */
+    private fun trimHistory() {
+        while (messages.size > MAX_KEPT) messages.removeAt(0)
+    }
+
+    private companion object {
+        const val MAX_CONTEXT = 40 // messages sent per request (≈20 turns of context)
+        const val MAX_KEPT = 200   // hard cap on messages held in memory
     }
 }

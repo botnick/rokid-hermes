@@ -63,6 +63,8 @@ object CodeDownloader {
             }
         } catch (e: Exception) {
             e.printStackTrace()
+            // Don't leave a partial .tmp behind in the cache.
+            runCatching { File(File(context.cacheDir, DIR), "$APK_FILENAME.tmp").delete() }
             null
         }
     }

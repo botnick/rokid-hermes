@@ -24,33 +24,20 @@ import java.util.concurrent.TimeUnit
  * The api_server requires a Bearer key (it refuses to start without one), so
  * [HermesSettings.apiKey] is always sent. Session continuity rides on
  * `X-Hermes-Session-Id`; long-term memory scoping on `X-Hermes-Session-Key`.
+ *
+ * The OkHttp clients are shared singletons (one probe client, one stream client)
+ * — constructing a HermesClient is cheap, so it's fine to create one per request
+ * /settings change without spawning extra thread/connection pools.
  */
 class HermesClient(private val settings: HermesSettings) {
-
-    private val json = Json {
-        ignoreUnknownKeys = true
-        encodeDefaults = true
-    }
-
-    /** Short timeouts: a quick reachability/auth probe. */
-    private val probeClient = OkHttpClient.Builder()
-        .connectTimeout(10, TimeUnit.SECONDS)
-        .readTimeout(15, TimeUnit.SECONDS)
-        .build()
-
-    // Idle-read timeout (gap between streamed chunks), not a total cap: a long
-    // reply keeps streaming tokens, but a hung/stalled gateway eventually errors
-    // instead of pinning the UI forever.
-    private val streamClient = OkHttpClient.Builder()
-        .connectTimeout(30, TimeUnit.SECONDS)
-        .readTimeout(120, TimeUnit.SECONDS)
-        .build()
 
     /** Verifies the gateway is reachable and the key is accepted. Returns model ids. */
     suspend fun testConnection(): Result<List<String>> = withContext(Dispatchers.IO) {
         try {
             val request = baseRequest("/models").get().build()
-            probeClient.newCall(request).execute().use { response ->
+            val call = probeClient.newCall(request)
+            coroutineContext[Job]?.invokeOnCompletion { call.cancel() }
+            call.execute().use { response ->
                 val raw = response.body?.string().orEmpty()
                 if (!response.isSuccessful) {
                     return@withContext Result.failure(httpError(response.code, raw))
@@ -157,5 +144,26 @@ class HermesClient(private val settings: HermesSettings) {
     companion object {
         const val MODEL = "hermes-agent"
         private val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
+
+        private val json = Json {
+            ignoreUnknownKeys = true
+            encodeDefaults = true
+        }
+
+        // Shared across all HermesClient instances (OkHttp's own guidance): each
+        // OkHttpClient owns a thread pool + connection pool, so we keep exactly two.
+        /** Short timeouts: a quick reachability/auth probe. */
+        private val probeClient = OkHttpClient.Builder()
+            .connectTimeout(10, TimeUnit.SECONDS)
+            .readTimeout(15, TimeUnit.SECONDS)
+            .build()
+
+        // Idle-read timeout (gap between streamed chunks), not a total cap: a long
+        // reply keeps streaming tokens, but a hung/stalled gateway eventually errors
+        // instead of pinning the UI forever.
+        private val streamClient = OkHttpClient.Builder()
+            .connectTimeout(30, TimeUnit.SECONDS)
+            .readTimeout(120, TimeUnit.SECONDS)
+            .build()
     }
 }

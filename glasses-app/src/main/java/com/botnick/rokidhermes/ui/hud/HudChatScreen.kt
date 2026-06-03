@@ -41,6 +41,7 @@ import com.botnick.rokidhermes.ui.Reachability
 @Composable
 fun HudChatScreen(
     controller: ChatController,
+    voiceUnavailable: Boolean = false,
     onMic: () -> Unit,
     onStopListening: () -> Unit,
     onStop: () -> Unit,
@@ -60,6 +61,15 @@ fun HudChatScreen(
             onNewChat = onNewChat,
             showNewChat = controller.messages.isNotEmpty()
         )
+        if (voiceUnavailable) {
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "🔇 Voice replies unavailable — text only",
+                color = Hud.DimGreen,
+                fontSize = 11.sp,
+                fontFamily = Hud.Font
+            )
+        }
         Spacer(modifier = Modifier.height(12.dp))
 
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {

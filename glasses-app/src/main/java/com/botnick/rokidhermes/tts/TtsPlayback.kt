@@ -10,10 +10,14 @@ import java.util.Locale
  *
  * [TextToSpeech] initialises asynchronously, so a reply can arrive before the
  * engine is ready. We queue the latest pending utterance and flush it from
- * onInit, and never silently drop the first reply. If init fails the engine is
- * marked failed (callable via [isFailed]) instead of staying mute forever.
+ * onInit, and never silently drop the first reply. [onInitResult] reports
+ * success/failure once init completes so the UI can surface a "voice unavailable"
+ * notice instead of failing silently — playback failure never blocks the chat.
  */
-class TtsPlayback(context: Context) {
+class TtsPlayback(
+    context: Context,
+    private val onInitResult: (Boolean) -> Unit = {}
+) {
 
     private var ready = false
     private var failed = false
@@ -35,6 +39,7 @@ class TtsPlayback(context: Context) {
             } else {
                 failed = true
             }
+            onInitResult(!failed)
         }
     }
 

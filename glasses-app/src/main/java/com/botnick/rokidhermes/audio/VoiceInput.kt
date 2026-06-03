@@ -71,7 +71,13 @@ class VoiceInput(private val context: Context) {
             )
             putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
         }
-        r.startListening(intent)
+        try {
+            r.startListening(intent)
+        } catch (e: Exception) {
+            // Don't leak the bound recognizer if the mic service hiccups.
+            destroy()
+            onError("Couldn't start the mic")
+        }
     }
 
     fun stop() {

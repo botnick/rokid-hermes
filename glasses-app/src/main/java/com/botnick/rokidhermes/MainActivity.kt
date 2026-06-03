@@ -49,7 +49,8 @@ private fun HermesApp() {
     var settings by remember { mutableStateOf(store.load()) }
     val controller = remember { ChatController(settings, scope) }
     val voice = remember { VoiceInput(context) }
-    val tts = remember { TtsPlayback(context) }
+    var ttsUnavailable by remember { mutableStateOf(false) }
+    val tts = remember { TtsPlayback(context) { ok -> ttsUnavailable = !ok } }
     // First run with nothing configured → start on setup.
     var screen by remember { mutableStateOf(if (settings.isConfigured) SCREEN_CHAT else SCREEN_SETTINGS) }
 
@@ -108,6 +109,7 @@ private fun HermesApp() {
 
         else -> HudChatScreen(
             controller = controller,
+            voiceUnavailable = ttsUnavailable,
             onMic = { onMic() },
             onStopListening = { voice.stop() },          // stop listening = submit the utterance
             onStop = { tts.stop(); voice.stop(); controller.cancel() },
