@@ -2,6 +2,8 @@ package com.botnick.rokidhermes
 
 import com.botnick.rokidhermes.data.HermesSettings
 import com.botnick.rokidhermes.loader.UpdateChecker
+import com.botnick.rokidhermes.network.ChatMessage
+import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -55,5 +57,22 @@ class UpdateLogicTest {
         val auto = HermesSettings(language = HermesSettings.LANG_AUTO)
         assertNull(auto.sttLanguageTag)            // follow device default
         assertEquals("", auto.systemPrompt)        // no language nudge
+    }
+
+    @Test fun multimodalContentSerializesInOpenAiShape() {
+        val json = Json { encodeDefaults = true }
+
+        val textMsg = ChatMessage.text("user", "hi")
+        val textJson = json.encodeToString(ChatMessage.serializer(), textMsg)
+        assertTrue(textJson.contains("\"content\":\"hi\""))   // text = bare string
+        assertFalse(textMsg.hasImage)
+
+        val imgMsg = ChatMessage.withImage("user", "what is this?", "data:image/jpeg;base64,AAAA")
+        val imgJson = json.encodeToString(ChatMessage.serializer(), imgMsg)
+        assertTrue(imgJson.contains("\"content\":["))         // multimodal = array
+        assertTrue(imgJson.contains("\"type\":\"image_url\""))
+        assertTrue(imgJson.contains("data:image/jpeg;base64,AAAA"))
+        assertTrue(imgMsg.hasImage)
+        assertEquals("what is this?", imgMsg.displayText)
     }
 }

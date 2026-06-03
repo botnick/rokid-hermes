@@ -16,6 +16,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import com.botnick.rokidhermes.audio.VoiceInput
 import com.botnick.rokidhermes.data.SettingsStore
 import com.botnick.rokidhermes.network.HermesClient
@@ -24,6 +25,8 @@ import com.botnick.rokidhermes.ui.ChatController
 import com.botnick.rokidhermes.ui.Reachability
 import com.botnick.rokidhermes.ui.hud.HudChatScreen
 import com.botnick.rokidhermes.ui.settings.SettingsScreen
+import com.botnick.rokidhermes.vision.CameraCapture
+import kotlinx.coroutines.launch
 
 /**
  * Main entry point for Rokid Hermes. Voice-first: tap to talk, the utterance is
@@ -51,6 +54,10 @@ private fun HermesApp() {
     val voice = remember { VoiceInput(context) }
     var ttsNotice by remember { mutableStateOf<String?>(null) }
     val tts = remember { TtsPlayback(context) { notice -> ttsNotice = notice } }
+    val camera = remember { CameraCapture(context) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    // A captured frame waiting to be attached to the next spoken question.
+    val pendingImage = remember { mutableStateOf<String?>(null) }
     // First run with nothing configured → start on setup.
     var screen by remember { mutableStateOf(if (settings.isConfigured) SCREEN_CHAT else SCREEN_SETTINGS) }
 
@@ -78,7 +85,11 @@ private fun HermesApp() {
         voice.start(
             languageTag = settings.sttLanguageTag,
             onPartial = { controller.updatePartial(it) },
-            onResult = { text -> controller.send(text) { reply -> speak(reply) } },
+            onResult = { text ->
+                val image = pendingImage.value
+                pendingImage.value = null
+                controller.send(text, image) { reply -> speak(reply) }
+            },
             onError = { controller.onError(it) }
         )
     }
@@ -93,6 +104,33 @@ private fun HermesApp() {
         val granted = context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) ==
             PackageManager.PERMISSION_GRANTED
         if (granted) startListening() else micPermission.launch(Manifest.permission.RECORD_AUDIO)
+    }
+
+    // Capture a frame, then immediately listen so the next utterance is asked about it.
+    fun captureThenListen() {
+        tts.stop()
+        controller.setCapturing()
+        scope.launch {
+            val image = camera.captureDataUrl(lifecycleOwner)
+            if (image == null) {
+                controller.onError("Couldn't capture image")
+            } else {
+                pendingImage.value = image
+                startListening()
+            }
+        }
+    }
+
+    val cameraPermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) captureThenListen() else controller.onError("Camera permission needed to look")
+    }
+
+    fun onLook() {
+        val granted = context.checkSelfPermission(Manifest.permission.CAMERA) ==
+            PackageManager.PERMISSION_GRANTED
+        if (granted) captureThenListen() else cameraPermission.launch(Manifest.permission.CAMERA)
     }
 
     when (screen) {
@@ -112,6 +150,7 @@ private fun HermesApp() {
             controller = controller,
             voiceNotice = ttsNotice,
             onMic = { onMic() },
+            onLook = { onLook() },
             onStopListening = { voice.stop() },          // stop listening = submit the utterance
             onStop = { tts.stop(); voice.stop(); controller.cancel() },
             onRetry = { controller.retry { reply -> speak(reply) } },

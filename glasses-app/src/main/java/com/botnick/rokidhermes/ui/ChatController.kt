@@ -13,7 +13,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import java.util.UUID
 
-enum class ChatStatus { IDLE, LISTENING, THINKING, STREAMING, ERROR }
+enum class ChatStatus { IDLE, LISTENING, CAPTURING, THINKING, STREAMING, ERROR }
 
 /** Real connectivity state of the configured gateway (not just "fields filled in"). */
 enum class Reachability { NOT_SET, UNKNOWN, OK, FAILED }
@@ -83,6 +83,12 @@ class ChatController(initial: HermesSettings, private val scope: CoroutineScope)
         partial = ""
     }
 
+    fun setCapturing() {
+        status = ChatStatus.CAPTURING
+        statusText = "📷 Looking…"
+        partial = ""
+    }
+
     fun updatePartial(text: String) {
         if (status == ChatStatus.LISTENING && text.isNotBlank()) partial = text
     }
@@ -113,10 +119,15 @@ class ChatController(initial: HermesSettings, private val scope: CoroutineScope)
     val canRetry: Boolean
         get() = messages.lastOrNull()?.role == Roles.USER
 
-    fun send(userText: String, onReply: (String) -> Unit) {
+    fun send(userText: String, imageDataUrl: String? = null, onReply: (String) -> Unit) {
         onReplyCb = onReply
         partial = ""
-        messages.add(ChatMessage(Roles.USER, userText))
+        val turn = if (imageDataUrl != null) {
+            ChatMessage.withImage(Roles.USER, userText, imageDataUrl)
+        } else {
+            ChatMessage.text(Roles.USER, userText)
+        }
+        messages.add(turn)
         trimHistory()
         runRequest()
     }
@@ -134,10 +145,15 @@ class ChatController(initial: HermesSettings, private val scope: CoroutineScope)
         // Send only the most recent window — bounds request size / tokens for a long
         // chat. A language system-nudge (if any) is prepended but never displayed.
         val window = messages.toList().takeLast(MAX_CONTEXT)
+        // Keep an image only on the most recent turn so old frames don't bloat the payload.
+        val lastIndex = window.lastIndex
+        val pruned = window.mapIndexed { i, m ->
+            if (i != lastIndex && m.hasImage) ChatMessage.text(m.role, m.displayText) else m
+        }
         val outbound = if (systemPrompt.isNotBlank()) {
-            listOf(ChatMessage(Roles.SYSTEM, systemPrompt)) + window
+            listOf(ChatMessage.text(Roles.SYSTEM, systemPrompt)) + pruned
         } else {
-            window
+            pruned
         }
         job = scope.launch {
             client.streamChat(outbound, sessionId) { piece ->
@@ -145,7 +161,7 @@ class ChatController(initial: HermesSettings, private val scope: CoroutineScope)
                 streamingReply += piece
             }.onSuccess { full ->
                 reachability = Reachability.OK
-                messages.add(ChatMessage(Roles.ASSISTANT, full))
+                messages.add(ChatMessage.text(Roles.ASSISTANT, full))
                 trimHistory()
                 streamingReply = ""
                 reset()
@@ -155,7 +171,7 @@ class ChatController(initial: HermesSettings, private val scope: CoroutineScope)
                 when {
                     // The agent had nothing to say — show a calm assistant turn, not a ⚠ error.
                     msg.contains("Empty reply", true) || msg.contains("Empty response", true) -> {
-                        messages.add(ChatMessage(Roles.ASSISTANT, "(no response — try rephrasing)"))
+                        messages.add(ChatMessage.text(Roles.ASSISTANT, "(no response — try rephrasing)"))
                         trimHistory()
                         streamingReply = ""
                         reset()

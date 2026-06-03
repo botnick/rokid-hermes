@@ -43,6 +43,7 @@ fun HudChatScreen(
     controller: ChatController,
     voiceNotice: String? = null,
     onMic: () -> Unit,
+    onLook: () -> Unit,
     onStopListening: () -> Unit,
     onStop: () -> Unit,
     onRetry: () -> Unit,
@@ -95,7 +96,33 @@ fun HudChatScreen(
         }
 
         Spacer(modifier = Modifier.height(8.dp))
+        // Capture-and-ask is only offered when idle (it captures, then starts listening).
+        if (controller.configured && controller.status == ChatStatus.IDLE) {
+            LookButton(onLook)
+            Spacer(modifier = Modifier.height(8.dp))
+        }
         MicBar(controller, onMic, onStopListening, onStop)
+    }
+}
+
+@Composable
+private fun LookButton(onLook: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(2.dp, Hud.Green, RoundedCornerShape(8.dp))
+            .background(Hud.Black, RoundedCornerShape(8.dp))
+            .clickable { onLook() }
+            .padding(vertical = 12.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = "📷  LOOK & ASK",
+            color = Hud.Green,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.Bold,
+            fontFamily = Hud.Font
+        )
     }
 }
 
@@ -231,22 +258,24 @@ private fun Transcript(controller: ChatController) {
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        items(controller.messages) { msg -> MessageRow(msg.role, msg.content, label = null) }
+        items(controller.messages) { msg ->
+            MessageRow(msg.role, msg.displayText, hasImage = msg.hasImage, label = null)
+        }
         if (streaming.isNotEmpty()) {
-            item { MessageRow(Roles.ASSISTANT, "$streaming▌", label = null) }
+            item { MessageRow(Roles.ASSISTANT, "$streaming▌", hasImage = false, label = null) }
         }
         if (partial.isNotEmpty()) {
-            item { MessageRow(Roles.USER, partial, label = "› YOU (listening)") }
+            item { MessageRow(Roles.USER, partial, hasImage = false, label = "› YOU (listening)") }
         }
     }
 }
 
 @Composable
-private fun MessageRow(role: String, content: String, label: String?) {
+private fun MessageRow(role: String, content: String, hasImage: Boolean, label: String?) {
     val isUser = role == Roles.USER
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
-            text = label ?: if (isUser) "› YOU" else "◉ HERMES",
+            text = (label ?: if (isUser) "› YOU" else "◉ HERMES") + if (hasImage) "  📷" else "",
             color = Hud.DimGreen,
             fontSize = 11.sp,
             fontWeight = FontWeight.Bold,
@@ -324,12 +353,14 @@ private fun MicBar(
     val status = controller.status
     val busy = status == ChatStatus.THINKING || status == ChatStatus.STREAMING
     val listening = status == ChatStatus.LISTENING
+    val capturing = status == ChatStatus.CAPTURING
 
     val label: String
     val action: () -> Unit
     val enabled: Boolean
     when {
         !controller.configured -> { label = "⚙  SET UP FIRST"; action = onMic; enabled = false }
+        capturing -> { label = "📷  LOOKING…"; action = {}; enabled = false }
         listening -> { label = "●  LISTENING — TAP TO SEND"; action = onStopListening; enabled = true }
         busy -> { label = "✕  STOP"; action = onStop; enabled = true }
         else -> { label = "🎤  TAP TO TALK"; action = onMic; enabled = true }
