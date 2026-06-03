@@ -4,6 +4,7 @@ import com.botnick.rokidhermes.data.HermesSettings
 import com.botnick.rokidhermes.loader.UpdateChecker
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -39,5 +40,20 @@ class UpdateLogicTest {
         assertFalse(HermesSettings("", "key", "m").isConfigured)
         assertFalse(HermesSettings("http://h:8642/v1", "", "m").isConfigured)
         assertFalse(HermesSettings("  ", "  ", "m").isConfigured)
+    }
+
+    @Test fun languageHelpersDriveSttTtsAndPrompt() {
+        val th = HermesSettings(language = HermesSettings.LANG_TH)
+        assertEquals("th-TH", th.sttLanguageTag)
+        assertEquals("th", th.ttsLocale.language)
+        assertTrue(th.systemPrompt.isNotBlank())
+
+        val en = HermesSettings(language = HermesSettings.LANG_EN)
+        assertEquals("en-US", en.sttLanguageTag)
+        assertEquals("en", en.ttsLocale.language)
+
+        val auto = HermesSettings(language = HermesSettings.LANG_AUTO)
+        assertNull(auto.sttLanguageTag)            // follow device default
+        assertEquals("", auto.systemPrompt)        // no language nudge
     }
 }

@@ -51,13 +51,14 @@ fun SettingsScreen(
 ) {
     var baseUrl by remember { mutableStateOf(initial.baseUrl) }
     var apiKey by remember { mutableStateOf(initial.apiKey) }
+    var language by remember { mutableStateOf(initial.language) }
 
     var testing by remember { mutableStateOf(false) }
     var testMsg by remember { mutableStateOf("") }
     var testOk by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
-    fun current() = HermesSettings(baseUrl.trim(), apiKey.trim(), initial.memoryKey)
+    fun current() = HermesSettings(baseUrl.trim(), apiKey.trim(), initial.memoryKey, language)
 
     fun testAndSave() {
         testing = true
@@ -118,13 +119,33 @@ fun SettingsScreen(
             keyboardType = KeyboardType.Password
         )
 
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(text = "Language", color = Hud.Green, fontSize = 14.sp, fontWeight = FontWeight.Bold, fontFamily = Hud.Font)
+        Spacer(modifier = Modifier.height(2.dp))
+        Text(
+            text = "Voice in, voice out, and reply language",
+            color = Hud.DimGreen, fontSize = 11.sp, fontFamily = Hud.Font
+        )
+        Spacer(modifier = Modifier.height(6.dp))
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            LangChip("Auto", language == HermesSettings.LANG_AUTO, Modifier.weight(1f)) {
+                language = HermesSettings.LANG_AUTO; testMsg = ""
+            }
+            LangChip("ไทย", language == HermesSettings.LANG_TH, Modifier.weight(1f)) {
+                language = HermesSettings.LANG_TH; testMsg = ""
+            }
+            LangChip("English", language == HermesSettings.LANG_EN, Modifier.weight(1f)) {
+                language = HermesSettings.LANG_EN; testMsg = ""
+            }
+        }
+
         if (testMsg.isNotEmpty()) {
             Spacer(modifier = Modifier.height(12.dp))
             Text(
                 text = (if (testOk) "✓  " else "✗  ") + testMsg,
                 color = Hud.Green,
                 fontSize = 13.sp,
-                fontFamily = Hud.Font
+                fontFamily = Hud.Body
             )
         }
 
@@ -185,6 +206,31 @@ private fun Field(
         }
         Spacer(modifier = Modifier.height(4.dp))
         Text(text = helper, color = Hud.DimGreen, fontSize = 11.sp, fontFamily = Hud.Font)
+    }
+}
+
+@Composable
+private fun LangChip(
+    label: String,
+    selected: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier = modifier
+            .border(2.dp, if (selected) Hud.Green else Hud.DimGreen, RoundedCornerShape(6.dp))
+            .background(if (selected) Hud.Green else Hud.Black, RoundedCornerShape(6.dp))
+            .clickable { onClick() }
+            .padding(vertical = 10.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = label,
+            color = if (selected) Hud.Black else Hud.Green,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Bold,
+            fontFamily = Hud.Body // "ไทย" is Thai text
+        )
     }
 }
 

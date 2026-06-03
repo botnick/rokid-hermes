@@ -41,7 +41,7 @@ import com.botnick.rokidhermes.ui.Reachability
 @Composable
 fun HudChatScreen(
     controller: ChatController,
-    voiceUnavailable: Boolean = false,
+    voiceNotice: String? = null,
     onMic: () -> Unit,
     onStopListening: () -> Unit,
     onStop: () -> Unit,
@@ -61,13 +61,13 @@ fun HudChatScreen(
             onNewChat = onNewChat,
             showNewChat = controller.messages.isNotEmpty()
         )
-        if (voiceUnavailable) {
+        if (voiceNotice != null) {
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "🔇 Voice replies unavailable — text only",
+                text = voiceNotice,
                 color = Hud.DimGreen,
                 fontSize = 11.sp,
-                fontFamily = Hud.Font
+                fontFamily = Hud.Body
             )
         }
         Spacer(modifier = Modifier.height(12.dp))
@@ -257,7 +257,7 @@ private fun MessageRow(role: String, content: String, label: String?) {
             text = content,
             color = Hud.Green,
             fontSize = if (isUser) 15.sp else 16.sp,
-            fontFamily = Hud.Font
+            fontFamily = Hud.Body // content may be Thai — proportional family covers it cleanly
         )
     }
 }

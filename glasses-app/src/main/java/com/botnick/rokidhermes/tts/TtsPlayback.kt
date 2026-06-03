@@ -8,20 +8,20 @@ import java.util.Locale
  * TTS playback through the Rokid AI Glasses built-in speakers, using Android's
  * built-in [TextToSpeech] engine. Speaks Hermes replies aloud.
  *
- * [TextToSpeech] initialises asynchronously, so a reply can arrive before the
- * engine is ready. We queue the latest pending utterance and flush it from
- * onInit, and never silently drop the first reply. [onInitResult] reports
- * success/failure once init completes so the UI can surface a "voice unavailable"
- * notice instead of failing silently — playback failure never blocks the chat.
+ * Language is chosen dynamically PER REPLY: text containing Thai is spoken with a
+ * Thai voice, otherwise with [speak]'s preferred locale. The setLanguage result
+ * is checked, so a missing voice surfaces a notice via [onNotice] (null clears it)
+ * instead of speaking garbled audio. Playback failure never blocks the chat —
+ * the reply text is always on the HUD regardless.
  */
 class TtsPlayback(
     context: Context,
-    private val onInitResult: (Boolean) -> Unit = {}
+    private val onNotice: (String?) -> Unit = {}
 ) {
 
     private var ready = false
     private var failed = false
-    private var pending: String? = null
+    private var pending: Pair<String, Locale>? = null
 
     // lateinit lets the onInit callback reference `engine` safely — it only runs
     // after construction, by which point the field is assigned.
@@ -31,29 +31,43 @@ class TtsPlayback(
         engine = TextToSpeech(context.applicationContext) { status ->
             if (status == TextToSpeech.SUCCESS) {
                 ready = true
-                engine.language = Locale.getDefault()
-                pending?.let { text ->
-                    engine.speak(text, TextToSpeech.QUEUE_FLUSH, null, UTTERANCE_ID)
+                pending?.let { (text, locale) ->
+                    doSpeak(text, locale)
                     pending = null
                 }
             } else {
                 failed = true
+                onNotice("🔇 Voice replies unavailable — text only")
             }
-            onInitResult(!failed)
         }
     }
 
-    val isFailed: Boolean get() = failed
-
-    /** Speaks [text], interrupting anything currently playing. Queues if not ready yet. */
-    fun speak(text: String) {
+    /**
+     * Speaks [text], interrupting anything playing. [preferred] is the voice locale
+     * used when the text isn't detectably Thai. Queues if the engine isn't ready yet.
+     */
+    fun speak(text: String, preferred: Locale = Locale.getDefault()) {
         if (failed || text.isBlank()) return
+        val target = if (hasThai(text)) THAI else preferred
         if (!ready) {
-            pending = text
+            pending = text to target
             return
         }
+        doSpeak(text, target)
+    }
+
+    private fun doSpeak(text: String, target: Locale) {
+        val result = engine.setLanguage(target)
+        if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
+            val name = if (target.language == "th") "Thai" else target.displayLanguage
+            onNotice("🔇 No $name voice installed — text only")
+            return
+        }
+        onNotice(null)
         engine.speak(text, TextToSpeech.QUEUE_FLUSH, null, UTTERANCE_ID)
     }
+
+    private fun hasThai(s: String): Boolean = s.any { it.code in 0x0E00..0x0E7F }
 
     fun stop() {
         pending = null
@@ -72,5 +86,6 @@ class TtsPlayback(
 
     private companion object {
         const val UTTERANCE_ID = "hermes-reply"
+        val THAI: Locale = Locale("th", "TH")
     }
 }

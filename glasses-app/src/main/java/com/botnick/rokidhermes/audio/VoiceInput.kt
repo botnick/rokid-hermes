@@ -25,6 +25,7 @@ class VoiceInput(private val context: Context) {
      * @param onError   human-readable error message
      */
     fun start(
+        languageTag: String? = null,
         onPartial: (String) -> Unit = {},
         onResult: (String) -> Unit,
         onError: (String) -> Unit
@@ -70,6 +71,11 @@ class VoiceInput(private val context: Context) {
                 RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
             )
             putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+            // Pin recognition language when chosen; null = follow device default.
+            languageTag?.let {
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE, it)
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, it)
+            }
         }
         try {
             r.startListening(intent)
@@ -98,6 +104,9 @@ class VoiceInput(private val context: Context) {
         SpeechRecognizer.ERROR_NO_MATCH -> "Didn't catch that"
         SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> "Recognizer busy"
         SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "No speech heard"
+        // API 33+ codes (harmless dead branches on older devices).
+        SpeechRecognizer.ERROR_LANGUAGE_NOT_SUPPORTED -> "Language not supported here"
+        SpeechRecognizer.ERROR_LANGUAGE_UNAVAILABLE -> "Language pack not installed"
         else -> "Speech error ($code)"
     }
 }

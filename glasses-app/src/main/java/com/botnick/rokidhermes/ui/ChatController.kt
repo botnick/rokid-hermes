@@ -54,10 +54,12 @@ class ChatController(initial: HermesSettings, private val scope: CoroutineScope)
     private var sessionId = UUID.randomUUID().toString()
     private var job: Job? = null
     private var onReplyCb: ((String) -> Unit)? = null
+    private var systemPrompt = initial.systemPrompt
 
     fun updateSettings(settings: HermesSettings) {
         client = HermesClient(settings)
         configured = settings.isConfigured
+        systemPrompt = settings.systemPrompt
         reachability = if (settings.isConfigured) Reachability.UNKNOWN else Reachability.NOT_SET
     }
 
@@ -129,10 +131,16 @@ class ChatController(initial: HermesSettings, private val scope: CoroutineScope)
         status = ChatStatus.THINKING
         statusText = "Hermes is thinking…"
         streamingReply = ""
+        // Send only the most recent window — bounds request size / tokens for a long
+        // chat. A language system-nudge (if any) is prepended but never displayed.
+        val window = messages.toList().takeLast(MAX_CONTEXT)
+        val outbound = if (systemPrompt.isNotBlank()) {
+            listOf(ChatMessage(Roles.SYSTEM, systemPrompt)) + window
+        } else {
+            window
+        }
         job = scope.launch {
-            // Send only the most recent window — bounds request size / tokens for a
-            // long chat. Hermes' own session id + memory key carry longer continuity.
-            client.streamChat(messages.toList().takeLast(MAX_CONTEXT), sessionId) { piece ->
+            client.streamChat(outbound, sessionId) { piece ->
                 status = ChatStatus.STREAMING
                 streamingReply += piece
             }.onSuccess { full ->
