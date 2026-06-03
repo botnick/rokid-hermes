@@ -12,16 +12,29 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.VolumeOff
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -36,7 +49,7 @@ import com.botnick.rokidhermes.ui.Reachability
  * Voice-first HUD chat for the 480x640 monochrome green micro-LED. One big,
  * obvious action that changes with state (talk / send / stop), an honest
  * connection indicator, a forming-speech bubble, and an actionable error card —
- * no dead-ends.
+ * no dead-ends. Uses tinted vector icons (not emoji) for crisp monochrome glyphs.
  */
 @Composable
 fun HudChatScreen(
@@ -64,12 +77,11 @@ fun HudChatScreen(
         )
         if (voiceNotice != null) {
             Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = voiceNotice,
-                color = Hud.DimGreen,
-                fontSize = 11.sp,
-                fontFamily = Hud.Body
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Filled.VolumeOff, null, tint = Hud.DimGreen, modifier = Modifier.size(13.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(text = voiceNotice, color = Hud.DimGreen, fontSize = 11.sp, fontFamily = Hud.Body)
+            }
         }
         Spacer(modifier = Modifier.height(12.dp))
 
@@ -98,31 +110,10 @@ fun HudChatScreen(
         Spacer(modifier = Modifier.height(8.dp))
         // Capture-and-ask is only offered when idle (it captures, then starts listening).
         if (controller.configured && controller.status == ChatStatus.IDLE) {
-            LookButton(onLook)
+            BarButton(Icons.Filled.CameraAlt, "LOOK & ASK", filled = false, enabled = true, big = false, onClick = onLook)
             Spacer(modifier = Modifier.height(8.dp))
         }
         MicBar(controller, onMic, onStopListening, onStop)
-    }
-}
-
-@Composable
-private fun LookButton(onLook: () -> Unit) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .border(2.dp, Hud.Green, RoundedCornerShape(8.dp))
-            .background(Hud.Black, RoundedCornerShape(8.dp))
-            .clickable { onLook() }
-            .padding(vertical = 12.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = "📷  LOOK & ASK",
-            color = Hud.Green,
-            fontSize = 15.sp,
-            fontWeight = FontWeight.Bold,
-            fontFamily = Hud.Font
-        )
     }
 }
 
@@ -139,12 +130,7 @@ private fun Header(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                text = dotFor(reachability),
-                color = Hud.Green,
-                fontSize = 14.sp,
-                fontFamily = Hud.Font
-            )
+            Text(text = dotFor(reachability), color = Hud.Green, fontSize = 14.sp, fontFamily = Hud.Font)
             Text(
                 text = "  HERMES",
                 color = Hud.Green,
@@ -156,17 +142,17 @@ private fun Header(
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (showNewChat) {
                 TapTarget(onClick = onNewChat) {
-                    Text(text = "NEW", color = Hud.DimGreen, fontSize = 13.sp, fontFamily = Hud.Font)
+                    Text(text = "NEW", color = Hud.DimGreen, fontSize = 14.sp, fontFamily = Hud.Font)
                 }
-                Spacer(modifier = Modifier.height(0.dp))
             }
             TapTarget(onClick = onOpenSettings) {
-                Text(text = "SET UP", color = Hud.DimGreen, fontSize = 13.sp, fontFamily = Hud.Font)
+                Text(text = "SET UP", color = Hud.DimGreen, fontSize = 14.sp, fontFamily = Hud.Font)
             }
         }
     }
 }
 
+// Connection dot kept as crisp geometric glyphs (these read great on the HUD).
 private fun dotFor(r: Reachability): String = when (r) {
     Reachability.OK -> "●"        // verified reachable
     Reachability.FAILED -> "⚠"    // configured but last attempt failed
@@ -192,7 +178,7 @@ private fun Onboarding(onOpenSettings: () -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Text(text = "👋", fontSize = 40.sp)
+        Icon(Icons.Filled.Link, null, tint = Hud.Green, modifier = Modifier.size(40.dp))
         Spacer(modifier = Modifier.height(12.dp))
         Text(
             text = "Connect to your Hermes agent",
@@ -203,13 +189,15 @@ private fun Onboarding(onOpenSettings: () -> Unit) {
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = "Open setup and enter your Hermes\nURL and API key to start talking.",
+            text = "Open setup and add your Hermes\nserver address and access key.",
             color = Hud.DimGreen,
             fontSize = 13.sp,
-            fontFamily = Hud.Font
+            fontFamily = Hud.Body
         )
         Spacer(modifier = Modifier.height(24.dp))
-        BigButton(text = "⚙  OPEN SETUP", filled = true, onClick = onOpenSettings)
+        Box(modifier = Modifier.fillMaxWidth(0.8f)) {
+            BarButton(Icons.Filled.Settings, "OPEN SETUP", filled = true, enabled = true, big = true, onClick = onOpenSettings)
+        }
     }
 }
 
@@ -220,21 +208,16 @@ private fun EmptyHint() {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Text(text = "🎤", fontSize = 36.sp)
+        Icon(Icons.Filled.Mic, null, tint = Hud.Green, modifier = Modifier.size(36.dp))
         Spacer(modifier = Modifier.height(10.dp))
-        Text(
-            text = "Tap the mic and just talk.",
-            color = Hud.Green,
-            fontSize = 16.sp,
-            fontFamily = Hud.Font
-        )
+        Text(text = "Tap the mic and just talk.", color = Hud.Green, fontSize = 16.sp, fontFamily = Hud.Body)
         Spacer(modifier = Modifier.height(8.dp))
         listOf(
             "\"What's on my schedule today?\"",
-            "\"Summarize my latest emails.\"",
+            "\"What is this?\" (with LOOK & ASK)",
             "\"Remind me to call mom at 6pm.\""
         ).forEach { example ->
-            Text(text = example, color = Hud.DimGreen, fontSize = 12.sp, fontFamily = Hud.Font)
+            Text(text = example, color = Hud.DimGreen, fontSize = 12.sp, fontFamily = Hud.Body)
             Spacer(modifier = Modifier.height(2.dp))
         }
     }
@@ -259,28 +242,39 @@ private fun Transcript(controller: ChatController) {
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         items(controller.messages) { msg ->
-            MessageRow(msg.role, msg.displayText, hasImage = msg.hasImage, label = null)
+            MessageRow(msg.role, msg.displayText, hasImage = msg.hasImage, listening = false)
         }
         if (streaming.isNotEmpty()) {
-            item { MessageRow(Roles.ASSISTANT, "$streaming▌", hasImage = false, label = null) }
+            item { MessageRow(Roles.ASSISTANT, "$streaming▌", hasImage = false, listening = false) }
         }
         if (partial.isNotEmpty()) {
-            item { MessageRow(Roles.USER, partial, hasImage = false, label = "› YOU (listening)") }
+            item { MessageRow(Roles.USER, partial, hasImage = false, listening = true) }
         }
     }
 }
 
 @Composable
-private fun MessageRow(role: String, content: String, hasImage: Boolean, label: String?) {
+private fun MessageRow(role: String, content: String, hasImage: Boolean, listening: Boolean) {
     val isUser = role == Roles.USER
+    val label = when {
+        listening -> "YOU (listening)"
+        isUser -> "YOU"
+        else -> "HERMES"
+    }
     Column(modifier = Modifier.fillMaxWidth()) {
-        Text(
-            text = (label ?: if (isUser) "› YOU" else "◉ HERMES") + if (hasImage) "  📷" else "",
-            color = Hud.DimGreen,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.Bold,
-            fontFamily = Hud.Font
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = label,
+                color = Hud.DimGreen,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                fontFamily = Hud.Font
+            )
+            if (hasImage) {
+                Spacer(modifier = Modifier.width(5.dp))
+                Icon(Icons.Filled.CameraAlt, null, tint = Hud.DimGreen, modifier = Modifier.size(12.dp))
+            }
+        }
         Spacer(modifier = Modifier.height(2.dp))
         Text(
             text = content,
@@ -293,16 +287,18 @@ private fun MessageRow(role: String, content: String, hasImage: Boolean, label: 
 
 @Composable
 private fun StatusLine(controller: ChatController) {
-    val text = when (controller.status) {
-        ChatStatus.IDLE -> if (controller.configured) "" else "Not connected"
-        else -> controller.statusText
+    val text = when {
+        controller.status != ChatStatus.IDLE -> controller.statusText
+        !controller.configured -> "Tap SET UP to begin"
+        controller.reachability == Reachability.FAILED -> "Hermes unreachable — check WiFi"
+        else -> ""
     }
     if (text.isNotEmpty()) {
         Text(
             text = text,
             color = Hud.DimGreen,
             fontSize = 13.sp,
-            fontFamily = Hud.Font,
+            fontFamily = Hud.Body,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.fillMaxWidth()
@@ -323,21 +319,20 @@ private fun ErrorCard(
             .border(1.dp, Hud.Green, RoundedCornerShape(6.dp))
             .padding(12.dp)
     ) {
-        Text(
-            text = "⚠  $message",
-            color = Hud.Green,
-            fontSize = 13.sp,
-            fontFamily = Hud.Font
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Filled.Warning, null, tint = Hud.Green, modifier = Modifier.size(16.dp))
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(text = message, color = Hud.Green, fontSize = 13.sp, fontFamily = Hud.Body)
+        }
         Spacer(modifier = Modifier.height(10.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             if (canRetry) {
                 Box(modifier = Modifier.weight(1f)) {
-                    SmallButton(text = "RETRY", filled = true, onClick = onRetry)
+                    BarButton(Icons.Filled.Refresh, "RETRY", filled = true, enabled = true, big = false, onClick = onRetry)
                 }
             }
             Box(modifier = Modifier.weight(1f)) {
-                SmallButton(text = "SET UP", filled = false, onClick = onOpenSettings)
+                BarButton(Icons.Filled.Settings, "SET UP", filled = false, enabled = true, big = false, onClick = onOpenSettings)
             }
         }
     }
@@ -355,73 +350,47 @@ private fun MicBar(
     val listening = status == ChatStatus.LISTENING
     val capturing = status == ChatStatus.CAPTURING
 
+    val icon: ImageVector
     val label: String
     val action: () -> Unit
     val enabled: Boolean
     when {
-        !controller.configured -> { label = "⚙  SET UP FIRST"; action = onMic; enabled = false }
-        capturing -> { label = "📷  LOOKING…"; action = {}; enabled = false }
-        listening -> { label = "●  LISTENING — TAP TO SEND"; action = onStopListening; enabled = true }
-        busy -> { label = "✕  STOP"; action = onStop; enabled = true }
-        else -> { label = "🎤  TAP TO TALK"; action = onMic; enabled = true }
+        !controller.configured -> { icon = Icons.Filled.Settings; label = "SET UP FIRST"; action = onMic; enabled = false }
+        capturing -> { icon = Icons.Filled.Close; label = "LOOKING…  (STOP)"; action = onStop; enabled = true }
+        listening -> { icon = Icons.Filled.Mic; label = "LISTENING — TAP TO SEND"; action = onStopListening; enabled = true }
+        busy -> { icon = Icons.Filled.Close; label = "STOP"; action = onStop; enabled = true }
+        else -> { icon = Icons.Filled.Mic; label = "TAP TO TALK"; action = onMic; enabled = true }
     }
+    BarButton(icon, label, filled = listening, enabled = enabled, big = true, onClick = action)
+}
 
-    val filled = listening
-    Box(
+/** Full-width pill: tinted icon + label, used for every primary action on the HUD. */
+@Composable
+private fun BarButton(
+    icon: ImageVector,
+    label: String,
+    filled: Boolean,
+    enabled: Boolean,
+    big: Boolean,
+    onClick: () -> Unit
+) {
+    val fg = if (filled) Hud.Black else if (enabled) Hud.Green else Hud.DimGreen
+    Row(
         modifier = Modifier
             .fillMaxWidth()
             .border(2.dp, if (enabled) Hud.Green else Hud.DimGreen, RoundedCornerShape(8.dp))
             .background(if (filled) Hud.Green else Hud.Black, RoundedCornerShape(8.dp))
-            .clickable(enabled = enabled) { action() }
-            .padding(vertical = 16.dp),
-        contentAlignment = Alignment.Center
+            .clickable(enabled = enabled) { onClick() }
+            .padding(vertical = if (big) 16.dp else 12.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
     ) {
+        Icon(icon, null, tint = fg, modifier = Modifier.size(if (big) 20.dp else 18.dp))
+        Spacer(modifier = Modifier.width(8.dp))
         Text(
             text = label,
-            color = if (filled) Hud.Black else if (enabled) Hud.Green else Hud.DimGreen,
-            fontSize = 16.sp,
-            fontWeight = FontWeight.Bold,
-            fontFamily = Hud.Font
-        )
-    }
-}
-
-@Composable
-private fun BigButton(text: String, filled: Boolean, onClick: () -> Unit) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth(0.8f)
-            .border(2.dp, Hud.Green, RoundedCornerShape(8.dp))
-            .background(if (filled) Hud.Green else Hud.Black, RoundedCornerShape(8.dp))
-            .clickable { onClick() }
-            .padding(vertical = 14.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = text,
-            color = if (filled) Hud.Black else Hud.Green,
-            fontSize = 16.sp,
-            fontWeight = FontWeight.Bold,
-            fontFamily = Hud.Font
-        )
-    }
-}
-
-@Composable
-private fun SmallButton(text: String, filled: Boolean, onClick: () -> Unit) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .border(2.dp, Hud.Green, RoundedCornerShape(6.dp))
-            .background(if (filled) Hud.Green else Hud.Black, RoundedCornerShape(6.dp))
-            .clickable { onClick() }
-            .padding(vertical = 12.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = text,
-            color = if (filled) Hud.Black else Hud.Green,
-            fontSize = 14.sp,
+            color = fg,
+            fontSize = if (big) 16.sp else 14.sp,
             fontWeight = FontWeight.Bold,
             fontFamily = Hud.Font
         )

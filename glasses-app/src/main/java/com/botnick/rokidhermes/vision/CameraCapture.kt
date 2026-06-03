@@ -31,8 +31,8 @@ class CameraCapture(private val context: Context) {
      */
     suspend fun captureDataUrl(
         owner: LifecycleOwner,
-        maxDim: Int = 768,
-        quality: Int = 80
+        maxDim: Int = 1568,
+        quality: Int = 92
     ): String? = suspendCancellableCoroutine { cont ->
         val mainExecutor = ContextCompat.getMainExecutor(context)
         val future = ProcessCameraProvider.getInstance(context)
@@ -96,27 +96,43 @@ class CameraCapture(private val context: Context) {
         // ImageCapture's default output is JPEG: a single plane of encoded bytes.
         val buffer = image.planes[0].buffer
         val bytes = ByteArray(buffer.remaining()).also { buffer.get(it) }
-        var bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+
+        // Decode bounds first, then subsample so we never decode the full sensor
+        // image (8–12+ MP -> tens of MB) into memory — keeps it OOM-safe while
+        // still producing a sharp image just above the target size.
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+        var sample = 1
+        while (max(bounds.outWidth, bounds.outHeight) / (sample * 2) >= maxDim) sample *= 2
+        val opts = BitmapFactory.Options().apply { inSampleSize = sample }
+
+        var bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, opts)
+            ?: throw IllegalStateException("decode failed")
 
         val rotation = image.imageInfo.rotationDegrees
         if (rotation != 0) {
             val m = Matrix().apply { postRotate(rotation.toFloat()) }
-            bmp = Bitmap.createBitmap(bmp, 0, 0, bmp.width, bmp.height, m, true)
+            val rotated = Bitmap.createBitmap(bmp, 0, 0, bmp.width, bmp.height, m, true)
+            if (rotated != bmp) bmp.recycle()
+            bmp = rotated
         }
 
         val longest = max(bmp.width, bmp.height)
         if (longest > maxDim) {
             val scale = maxDim.toFloat() / longest
-            bmp = Bitmap.createScaledBitmap(
+            val scaled = Bitmap.createScaledBitmap(
                 bmp,
                 (bmp.width * scale).toInt(),
                 (bmp.height * scale).toInt(),
                 true
             )
+            if (scaled != bmp) bmp.recycle()
+            bmp = scaled
         }
 
         val out = ByteArrayOutputStream()
         bmp.compress(Bitmap.CompressFormat.JPEG, quality, out)
+        bmp.recycle()
         val base64 = Base64.encodeToString(out.toByteArray(), Base64.NO_WRAP)
         return "data:image/jpeg;base64,$base64"
     }

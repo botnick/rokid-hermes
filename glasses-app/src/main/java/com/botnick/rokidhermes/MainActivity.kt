@@ -22,11 +22,14 @@ import com.botnick.rokidhermes.data.SettingsStore
 import com.botnick.rokidhermes.network.HermesClient
 import com.botnick.rokidhermes.tts.TtsPlayback
 import com.botnick.rokidhermes.ui.ChatController
+import com.botnick.rokidhermes.ui.ChatStatus
 import com.botnick.rokidhermes.ui.Reachability
 import com.botnick.rokidhermes.ui.hud.HudChatScreen
 import com.botnick.rokidhermes.ui.settings.SettingsScreen
 import com.botnick.rokidhermes.vision.CameraCapture
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * Main entry point for Rokid Hermes. Voice-first: tap to talk, the utterance is
@@ -56,8 +59,8 @@ private fun HermesApp() {
     val tts = remember { TtsPlayback(context) { notice -> ttsNotice = notice } }
     val camera = remember { CameraCapture(context) }
     val lifecycleOwner = LocalLifecycleOwner.current
-    // A captured frame waiting to be attached to the next spoken question.
-    val pendingImage = remember { mutableStateOf<String?>(null) }
+    // The in-flight capture coroutine, so STOP/New can abort a slow/hung capture.
+    val captureJob = remember { mutableStateOf<Job?>(null) }
     // First run with nothing configured → start on setup.
     var screen by remember { mutableStateOf(if (settings.isConfigured) SCREEN_CHAT else SCREEN_SETTINGS) }
 
@@ -85,11 +88,7 @@ private fun HermesApp() {
         voice.start(
             languageTag = settings.sttLanguageTag,
             onPartial = { controller.updatePartial(it) },
-            onResult = { text ->
-                val image = pendingImage.value
-                pendingImage.value = null
-                controller.send(text, image) { reply -> speak(reply) }
-            },
+            onResult = { text -> controller.send(text) { reply -> speak(reply) } },
             onError = { controller.onError(it) }
         )
     }
@@ -110,12 +109,15 @@ private fun HermesApp() {
     fun captureThenListen() {
         tts.stop()
         controller.setCapturing()
-        scope.launch {
-            val image = camera.captureDataUrl(lifecycleOwner)
+        captureJob.value?.cancel()
+        captureJob.value = scope.launch {
+            val image = withTimeoutOrNull(8000L) { camera.captureDataUrl(lifecycleOwner) }
+            // Aborted by STOP / New while capturing — don't resurrect the flow.
+            if (controller.status != ChatStatus.CAPTURING) return@launch
             if (image == null) {
-                controller.onError("Couldn't capture image")
+                controller.onError("Couldn't capture image — try again")
             } else {
-                pendingImage.value = image
+                controller.attachImage(image)
                 startListening()
             }
         }
@@ -152,10 +154,10 @@ private fun HermesApp() {
             onMic = { onMic() },
             onLook = { onLook() },
             onStopListening = { voice.stop() },          // stop listening = submit the utterance
-            onStop = { tts.stop(); voice.stop(); controller.cancel() },
+            onStop = { captureJob.value?.cancel(); tts.stop(); voice.stop(); controller.cancel() },
             onRetry = { controller.retry { reply -> speak(reply) } },
             onOpenSettings = { screen = SCREEN_SETTINGS },
-            onNewChat = { tts.stop(); controller.newConversation() }
+            onNewChat = { captureJob.value?.cancel(); tts.stop(); controller.newConversation() }
         )
     }
 }

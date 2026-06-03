@@ -56,6 +56,10 @@ class ChatController(initial: HermesSettings, private val scope: CoroutineScope)
     private var onReplyCb: ((String) -> Unit)? = null
     private var systemPrompt = initial.systemPrompt
 
+    // A captured frame waiting to ride along with the next sent turn. Owned here
+    // (not in the UI) so it's cleared consistently on every exit path.
+    private var pendingImage: String? = null
+
     fun updateSettings(settings: HermesSettings) {
         client = HermesClient(settings)
         configured = settings.isConfigured
@@ -73,6 +77,7 @@ class ChatController(initial: HermesSettings, private val scope: CoroutineScope)
         messages.clear()
         streamingReply = ""
         partial = ""
+        pendingImage = null
         sessionId = UUID.randomUUID().toString()
         reset()
     }
@@ -85,8 +90,13 @@ class ChatController(initial: HermesSettings, private val scope: CoroutineScope)
 
     fun setCapturing() {
         status = ChatStatus.CAPTURING
-        statusText = "📷 Looking…"
+        statusText = "Looking…"
         partial = ""
+    }
+
+    /** Stages a captured frame to attach to the next sent turn. */
+    fun attachImage(dataUrl: String) {
+        pendingImage = dataUrl
     }
 
     fun updatePartial(text: String) {
@@ -98,6 +108,7 @@ class ChatController(initial: HermesSettings, private val scope: CoroutineScope)
         statusText = message
         streamingReply = ""
         partial = ""
+        pendingImage = null // don't carry an abandoned frame into the next question
     }
 
     fun reset() {
@@ -111,6 +122,7 @@ class ChatController(initial: HermesSettings, private val scope: CoroutineScope)
         job?.cancel()
         job = null
         streamingReply = ""
+        pendingImage = null
         status = ChatStatus.IDLE
         statusText = "Stopped"
     }
@@ -119,11 +131,13 @@ class ChatController(initial: HermesSettings, private val scope: CoroutineScope)
     val canRetry: Boolean
         get() = messages.lastOrNull()?.role == Roles.USER
 
-    fun send(userText: String, imageDataUrl: String? = null, onReply: (String) -> Unit) {
+    fun send(userText: String, onReply: (String) -> Unit) {
         onReplyCb = onReply
         partial = ""
-        val turn = if (imageDataUrl != null) {
-            ChatMessage.withImage(Roles.USER, userText, imageDataUrl)
+        val image = pendingImage
+        pendingImage = null
+        val turn = if (image != null) {
+            ChatMessage.withImage(Roles.USER, userText, image)
         } else {
             ChatMessage.text(Roles.USER, userText)
         }
@@ -200,7 +214,7 @@ class ChatController(initial: HermesSettings, private val scope: CoroutineScope)
             msg.contains("UnknownHost", true) || msg.contains("Unable to resolve host", true) ->
             "Can't reach Hermes — check the URL & WiFi"
         msg.contains("timeout", true) ->
-            "Hermes timed out — is the gateway running?"
+            "Hermes timed out — the server may be down"
         msg.contains("404") ->
             "Not found — make sure the URL ends with /v1"
         else -> msg.take(80)

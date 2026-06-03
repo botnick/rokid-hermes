@@ -37,7 +37,7 @@ class TtsPlayback(
                 }
             } else {
                 failed = true
-                onNotice("🔇 Voice replies unavailable — text only")
+                onNotice("Voice replies unavailable — text only")
             }
         }
     }
@@ -60,7 +60,7 @@ class TtsPlayback(
         val result = engine.setLanguage(target)
         if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
             val name = if (target.language == "th") "Thai" else target.displayLanguage
-            onNotice("🔇 No $name voice installed — text only")
+            onNotice("No $name voice installed — text only")
             return
         }
         onNotice(null)

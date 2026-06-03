@@ -96,10 +96,10 @@ fun SettingsScreen(
         )
         Spacer(modifier = Modifier.height(6.dp))
         Text(
-            text = "Point this at your Hermes Agent's\napi_server (usually port 8642).",
+            text = "Enter your Hermes server address and\naccess key. Ask your admin if unsure.",
             color = Hud.DimGreen,
             fontSize = 12.sp,
-            fontFamily = Hud.Font
+            fontFamily = Hud.Body
         )
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -113,7 +113,7 @@ fun SettingsScreen(
         Spacer(modifier = Modifier.height(14.dp))
         Field(
             label = "API key",
-            helper = "Your API_SERVER_KEY (required)",
+            helper = "Your Hermes access key (required)",
             value = apiKey,
             onChange = { apiKey = it; testMsg = "" },
             keyboardType = KeyboardType.Password
@@ -169,10 +169,10 @@ fun SettingsScreen(
 
         Spacer(modifier = Modifier.height(18.dp))
         Text(
-            text = "Memory ID: ${initial.memoryKey.take(8)}…  (kept so Hermes remembers you)",
+            text = "Hermes remembers you across chats.",
             color = Hud.DimGreen,
             fontSize = 11.sp,
-            fontFamily = Hud.Font
+            fontFamily = Hud.Body
         )
     }
 }
